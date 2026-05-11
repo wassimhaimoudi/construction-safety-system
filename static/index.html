@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SafetyMonitor — Edge AI Construction Safety</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --yellow: #F5C518;
+    --red: #E63946;
+    --teal: #1A8C6E;
+    --black: #0A0A0A;
+    --white: #FFF;
+    --gray: #B0B0A8;
+  }
+
+  body {
+    background: var(--white);
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+    cursor: none;
+  }
+
+  /* Custom cursor */
+  #cursor {
+    width: 16px; height: 16px;
+    background: var(--black);
+    border-radius: 50%;
+    position: fixed; top: 0; left: 0;
+    pointer-events: none; z-index: 9999;
+    transform: translate(-50%, -50%);
+    transition: transform 0.1s, width 0.2s, height 0.2s, background 0.2s;
+  }
+  #cursor.hover { width: 48px; height: 48px; background: var(--yellow); mix-blend-mode: multiply; }
+
+  /* GRID LINES */
+  .grid-lines {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+  }
+  .grid-line {
+    border-right: 1px solid rgba(0,0,0,0.06);
+  }
+
+  /* HEADER */
+  header {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex; justify-content: flex-end; align-items: center;
+    padding: 2rem 3rem;
+    mix-blend-mode: multiply;
+  }
+
+  .menu-btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px; letter-spacing: 0.2em;
+    text-transform: uppercase;
+    background: none; border: none; cursor: none;
+    display: flex; align-items: center; gap: 12px;
+    color: var(--black);
+    font-weight: 700;
+  }
+
+  .menu-lines { display: flex; flex-direction: column; gap: 5px; }
+  .menu-lines span {
+    display: block; width: 28px; height: 2px;
+    background: var(--black);
+    transition: transform 0.3s;
+  }
+
+  /* FULLSCREEN MENU */
+  #nav-overlay {
+    position: fixed; inset: 0;
+    background: var(--black);
+    z-index: 500;
+    display: flex; align-items: center; padding-left: 15%;
+    transform: translateX(-100%);
+    transition: transform 0.6s cubic-bezier(0.77,0,0.175,1);
+  }
+  #nav-overlay.open { transform: translateX(0); }
+
+  .close-btn {
+    position: absolute; top: 2rem; right: 3rem;
+    font-family: 'Space Mono', monospace; font-size: 13px;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--white); background: none; border: none; cursor: none;
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  nav ul { list-style: none; }
+  nav ul li {
+    overflow: hidden;
+    padding: 4px 0;
+  }
+  nav ul li a {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(3rem, 7vw, 6rem);
+    color: var(--white);
+    text-decoration: none;
+    letter-spacing: 0.04em;
+    display: flex; align-items: center; gap: 1.5rem;
+    transition: color 0.3s;
+    line-height: 1;
+  }
+  nav ul li a:hover { color: var(--yellow); }
+  nav ul li a .nav-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px; color: var(--gray);
+    vertical-align: top; margin-top: 8px;
+  }
+
+  /* HERO SECTION */
+  #hero {
+    position: relative;
+    height: 100vh;
+    display: flex; flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .hero-id {
+    position: absolute; left: 3rem; top: 50%;
+    transform: translateY(-50%);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; letter-spacing: 0.2em;
+    color: var(--gray); writing-mode: vertical-rl;
+    text-transform: uppercase;
+    z-index: 10;
+  }
+
+  .hero-title-wrap {
+    position: relative; z-index: 10;
+    padding: 0 6rem;
+    text-align: center;
+  }
+
+  .hero-main {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(5rem, 16vw, 16rem);
+    line-height: 0.85;
+    letter-spacing: 0.02em;
+    color: var(--black);
+    position: relative; z-index: 2;
+    user-select: none;
+  }
+
+  .hero-sub {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(0.6rem, 1.5vw, 1.1rem);
+    letter-spacing: 0.35em;
+    color: var(--gray);
+    text-transform: uppercase;
+    text-align: right;
+    padding-right: 0.5rem;
+  }
+
+  /* FLOATING OBJECT */
+  .hero-object {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -55%);
+    width: clamp(220px, 35vw, 480px);
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 0.5s;
+    pointer-events: none;
+  }
+  .hero-object.visible { opacity: 1; }
+  .hero-object svg { width: 100%; height: auto; }
+
+  /* BOTTOM NAV */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    z-index: 50;
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid rgba(0,0,0,0.15);
+  }
+
+  .bottom-nav a {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--black);
+    padding: 1.2rem 1.5rem;
+    display: flex; align-items: center; justify-content: center;
+    border-right: 1px solid rgba(0,0,0,0.15);
+    background: var(--white);
+    transition: background 0.2s, color 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .bottom-nav a:last-child { border-right: none; }
+  .bottom-nav a:hover { background: var(--black); color: var(--yellow); }
+
+  .bottom-nav a .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--yellow);
+    position: absolute; left: 1rem;
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .bottom-nav a.active .dot { opacity: 1; }
+
+  /* SECTIONS */
+  section {
+    min-height: 100vh;
+    padding: 8rem 6rem 8rem;
+    position: relative;
+  }
+
+  section:nth-child(even) { background: var(--white); color: var(--black); }
+  section:nth-child(odd) { background: var(--white); color: var(--black); }
+
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gray);
+    margin-bottom: 3rem;
+    display: flex; align-items: center; gap: 1rem;
+  }
+  .section-label::after {
+    content: ''; flex: 1; height: 1px;
+    background: currentColor; opacity: 0.3;
+  }
+
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(3rem, 8vw, 8rem);
+    line-height: 0.9;
+    letter-spacing: 0.02em;
+    margin-bottom: 3rem;
+  }
+
+  /* APPROACH */
+  .approach-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    margin-top: 4rem;
+  }
+
+  .approach-text {
+    font-size: 1.1rem; line-height: 1.8;
+    color: var(--gray);
+    font-weight: 300;
+  }
+
+  .approach-text strong { color: var(--white); font-weight: 500; }
+
+  .stats-row {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 2rem; margin-top: 5rem;
+  }
+
+  .stat-box {
+    border-top: 1px solid rgba(255,255,255,0.15);
+    padding-top: 1.5rem;
+  }
+
+  .stat-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 4rem; color: var(--yellow);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--gray);
+    margin-top: 0.5rem;
+  }
+
+  /* SERVICES */
+  #services { background: var(--white) !important; color: var(--black) !important; }
+
+  .services-list { margin-top: 4rem; }
+  .service-item {
+    border-top: 1px solid rgba(0,0,0,0.12);
+    padding: 2.5rem 0;
+    display: grid; grid-template-columns: 80px 1fr auto;
+    align-items: center; gap: 2rem;
+    cursor: none;
+    transition: padding 0.3s;
+  }
+  .service-item:last-child { border-bottom: 1px solid rgba(0,0,0,0.12); }
+  .service-item:hover { padding-left: 2rem; }
+  .service-item:hover .service-arrow { transform: translateX(8px); }
+
+  .service-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; color: var(--gray);
+    letter-spacing: 0.15em;
+  }
+
+  .service-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(1.8rem, 3vw, 3rem);
+    letter-spacing: 0.03em;
+  }
+
+  .service-arrow {
+    font-size: 1.5rem; color: var(--black);
+    transition: transform 0.3s;
+  }
+
+  /* PROJECTS */
+  #projects { background: var(--black) !important; color: var(--white) !important; }
+
+  .projects-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 2px; margin-top: 4rem;
+  }
+
+  .project-card {
+    position: relative; overflow: hidden;
+    aspect-ratio: 4/3;
+    background: #111;
+    cursor: none;
+  }
+
+  .project-card-inner {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    justify-content: flex-end; padding: 2rem;
+    background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 60%);
+  }
+
+  .project-icon {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -60%);
+    font-size: 5rem; opacity: 0.2;
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .project-card:hover .project-icon { opacity: 0.6; transform: translate(-50%, -65%) scale(1.1); }
+
+  .project-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px; letter-spacing: 0.25em;
+    text-transform: uppercase; color: var(--yellow);
+    margin-bottom: 0.5rem;
+  }
+
+  .project-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem; color: var(--white);
+    line-height: 1;
+  }
+
+  /* NEWS / TECH */
+  #news { background: var(--white) !important; color: var(--black) !important; }
+
+  .news-row {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 3rem; margin-top: 4rem;
+  }
+
+  .news-item { border-top: 2px solid var(--black); padding-top: 1.5rem; }
+
+  .news-category {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--gray);
+    margin-bottom: 1rem;
+  }
+
+  .news-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8rem; line-height: 1; margin-bottom: 1rem;
+  }
+
+  .news-body {
+    font-size: 0.85rem; color: #555; line-height: 1.7;
+  }
+
+  /* FOOTER */
+  footer {
+    background: var(--black); color: var(--white);
+    padding: 4rem 6rem;
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    align-items: end; gap: 3rem;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .footer-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem; letter-spacing: 0.04em;
+    line-height: 1;
+  }
+
+  .footer-logo span { color: var(--yellow); }
+
+  .footer-meta {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px; color: var(--gray);
+    letter-spacing: 0.15em; line-height: 2;
+    text-transform: uppercase;
+  }
+
+  .footer-copy {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px; color: var(--gray);
+    text-align: right;
+  }
+
+  /* SCROLL PROGRESS */
+  #progress {
+    position: fixed; top: 0; left: 0;
+    height: 2px; background: var(--yellow);
+    z-index: 200; transition: width 0.1s;
+  }
+
+  /* ANIMATIONS */
+  @keyframes float-slow { 0%,100%{transform:translate(-50%,-55%) rotate(-3deg)} 50%{transform:translate(-50%,-52%) rotate(3deg)} }
+  .hero-object.visible { animation: float-slow 6s ease-in-out infinite; }
+
+  .reveal {
+    opacity: 0; transform: translateY(40px);
+    transition: opacity 0.8s, transform 0.8s;
+  }
+  .reveal.in { opacity: 1; transform: translateY(0); }
+
+  /* TICKER */
+  .ticker-wrap {
+    overflow: hidden; border-top: 1px solid rgba(0,0,0,0.1);
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    padding: 0.8rem 0; background: var(--black);
+  }
+  .ticker {
+    display: flex; gap: 4rem;
+    animation: ticker 20s linear infinite;
+    white-space: nowrap;
+  }
+  .ticker span {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--gray);
+  }
+  .ticker span b { color: var(--yellow); }
+  @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+  .launch-btn {
+    display: inline-block;
+    margin-top: 2.5rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--black);
+    background: var(--yellow);
+    border: 3px solid var(--black);
+    padding: 1rem 2.5rem;
+    text-decoration: none;
+    font-weight: 700;
+    cursor: none;
+    transition: background 0.2s, color 0.2s, transform 0.2s;
+    position: relative;
+    z-index: 20;
+  }
+  .launch-btn:hover {
+    background: var(--black);
+    color: var(--yellow);
+    transform: translate(-3px, -3px);
+    box-shadow: 6px 6px 0 var(--black);
+  }
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="progress"></div>
+
+<!-- GRID -->
+<div class="grid-lines">
+  <div class="grid-line"></div>
+  <div class="grid-line"></div>
+  <div class="grid-line"></div>
+  <div class="grid-line"></div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <button class="menu-btn" id="menuBtn">
+    MENU
+    <div class="menu-lines">
+      <span></span><span></span>
+    </div>
+  </button>
+</header>
+
+<!-- NAV OVERLAY -->
+<div id="nav-overlay">
+  <button class="close-btn" id="closeBtn">
+    CLOSE
+    <div class="menu-lines">
+      <span style="transform:rotate(45deg) translate(5px,5px)"></span>
+      <span style="transform:rotate(-45deg) translate(5px,-5px)"></span>
+    </div>
+  </button>
+  <nav>
+    <ul>
+      <li><a href="#hero"><span class="nav-num">01</span> Home</a></li>
+      <li><a href="/monitor"><span class="nav-num">→</span> Launch App</a></li>
+      <li><a href="#approach"><span class="nav-num">02</span> Approach</a></li>
+      <li><a href="#services"><span class="nav-num">03</span> Modules</a></li>
+      <li><a href="#projects"><span class="nav-num">04</span> Results</a></li>
+      <li><a href="#news"><span class="nav-num">05</span> Tech</a></li>
+    </ul>
+  </nav>
+</div>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-id">Mohammed 5 University · Rabat · 2025–2026</div>
+
+  <!-- Floating objects (SVG shapes representing safety objects) -->
+  <div class="hero-object visible" id="heroObj">
+    <!-- Default: Helmet -->
+    <svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg" id="objSvg">
+      <ellipse cx="200" cy="290" rx="160" ry="25" fill="rgba(0,0,0,0.08)"/>
+      <path d="M200 60 C270 60 330 120 340 200 L340 250 Q340 270 320 270 L80 270 Q60 270 60 250 L60 200 C70 120 130 60 200 60 Z" fill="#F5C518" stroke="#0A0A0A" stroke-width="6"/>
+      <rect x="60" y="255" width="280" height="22" rx="8" fill="#0A0A0A"/>
+      <path d="M200 90 C260 90 310 135 320 195 L80 195 C90 135 140 90 200 90 Z" fill="rgba(255,255,255,0.15)"/>
+      <rect x="125" y="262" width="150" height="8" rx="4" fill="rgba(255,255,255,0.2)"/>
+    </svg>
+  </div>
+
+  <div class="hero-title-wrap">
+    <div class="hero-main" id="heroTitle">SAFETY<br>MONITOR</div>
+    <div class="hero-sub">EDGE · AI · FRAMEWORK</div>
+    <a href="/monitor" class="launch-btn">LAUNCH MONITOR →</a>
+  </div>
+</section>
+
+<!-- TICKER -->
+<div class="ticker-wrap">
+  <div class="ticker">
+    <span>mAP@50 <b>86.9%</b></span>
+    <span>Precision <b>85.9%</b></span>
+    <span>Recall <b>86.7%</b></span>
+    <span>Inference <b>10.4ms/frame</b></span>
+    <span>Raspberry Pi 4 <b>Edge AI</b></span>
+    <span>YOLOv11s <b>Real-Time</b></span>
+    <span>PPE Detection <b>Multi-Class</b></span>
+    <span>mAP@50 <b>86.9%</b></span>
+    <span>Precision <b>85.9%</b></span>
+    <span>Recall <b>86.7%</b></span>
+    <span>Inference <b>10.4ms/frame</b></span>
+    <span>Raspberry Pi 4 <b>Edge AI</b></span>
+    <span>YOLOv11s <b>Real-Time</b></span>
+    <span>PPE Detection <b>Multi-Class</b></span>
+  </div>
+</div>
+
+<!-- APPROACH -->
+<section id="approach">
+  <div class="section-label reveal">02 — Our Approach</div>
+  <div class="section-title reveal">WE SEE<br>EVERY<br>RISK</div>
+  <div class="approach-grid">
+    <div class="approach-text reveal">
+      <p>Construction sites are among the <strong>most dangerous work environments</strong> on the planet. Manual monitoring is limited, inconsistent, and blind to real-time threats.</p>
+      <br>
+      <p>Our edge-AI framework deploys directly on a <strong>Raspberry Pi 4</strong> — no cloud dependency, no latency — delivering continuous, intelligent safety supervision where it matters most.</p>
+    </div>
+    <div class="approach-text reveal" style="transition-delay:0.15s">
+      <p>We combine three detection modules into a single unified system: <strong>PPE compliance</strong>, <strong>environmental hazard detection</strong>, and <strong>scaffolding risk classification</strong> — all processed locally in real-time.</p>
+      <br>
+      <p>Safety scores are computed per-worker and per-scene, with <strong>instant alerts to HSE supervisors</strong> the moment a violation is detected.</p>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-box reveal">
+      <div class="stat-num">86.9%</div>
+      <div class="stat-label">Global mAP@50</div>
+    </div>
+    <div class="stat-box reveal" style="transition-delay:0.1s">
+      <div class="stat-num">10.4ms</div>
+      <div class="stat-label">Inference / Frame</div>
+    </div>
+    <div class="stat-box reveal" style="transition-delay:0.2s">
+      <div class="stat-num">15+</div>
+      <div class="stat-label">Detection Classes</div>
+    </div>
+  </div>
+</section>
+
+<!-- SERVICES / MODULES -->
+<section id="services">
+  <div class="section-label reveal">03 — Detection Modules</div>
+  <div class="section-title reveal" style="color:var(--black)">THREE<br>MODULES<br>ONE SYSTEM</div>
+
+  <div class="services-list">
+    <div class="service-item reveal">
+      <div class="service-num">01</div>
+      <div>
+        <div class="service-name">PPE Compliance Detection</div>
+        <div style="font-size:0.8rem;color:var(--gray);margin-top:0.3rem;font-family:'Space Mono',monospace;letter-spacing:0.1em">Helmet · Vest · Gloves · Mask · Person</div>
+      </div>
+      <div class="service-arrow">→</div>
+    </div>
+    <div class="service-item reveal" style="transition-delay:0.1s">
+      <div class="service-num">02</div>
+      <div>
+        <div class="service-name">Environmental Hazard Detection</div>
+        <div style="font-size:0.8rem;color:var(--gray);margin-top:0.3rem;font-family:'Space Mono',monospace;letter-spacing:0.1em">Barrier · Cone · Danger Zone · Work Sign</div>
+      </div>
+      <div class="service-arrow">→</div>
+    </div>
+    <div class="service-item reveal" style="transition-delay:0.2s">
+      <div class="service-num">03</div>
+      <div>
+        <div class="service-name">Scaffolding Risk Classification</div>
+        <div style="font-size:0.8rem;color:var(--gray);margin-top:0.3rem;font-family:'Space Mono',monospace;letter-spacing:0.1em">High Risk · Suspended · Low Risk</div>
+      </div>
+      <div class="service-arrow">→</div>
+    </div>
+    <div class="service-item reveal" style="transition-delay:0.3s">
+      <div class="service-num">04</div>
+      <div>
+        <div class="service-name">Risk Score Engine</div>
+        <div style="font-size:0.8rem;color:var(--gray);margin-top:0.3rem;font-family:'Space Mono',monospace;letter-spacing:0.1em">Per-Worker · Scene-Level · Real-Time Alerts</div>
+      </div>
+      <div class="service-arrow">→</div>
+    </div>
+  </div>
+</section>
+
+<!-- RESULTS / PROJECTS -->
+<section id="projects">
+  <div class="section-label reveal" style="color:var(--gray)">04 — Results</div>
+  <div class="section-title reveal">PERFORMANCE<br>PROVEN</div>
+
+  <div class="projects-grid">
+    <div class="project-card reveal">
+      <div class="project-icon">🪖</div>
+      <div class="project-card-inner">
+        <div class="project-tag">PPE Detection Model</div>
+        <div class="project-title">86.9% mAP@50</div>
+      </div>
+    </div>
+    <div class="project-card reveal" style="transition-delay:0.1s">
+      <div class="project-icon">⚠️</div>
+      <div class="project-card-inner">
+        <div class="project-tag">Environmental Model</div>
+        <div class="project-title">96.5% Cone Detection</div>
+      </div>
+    </div>
+    <div class="project-card reveal" style="transition-delay:0.2s">
+      <div class="project-icon">🏗</div>
+      <div class="project-card-inner">
+        <div class="project-tag">Scaffolding Risk</div>
+        <div class="project-title">3 Risk Classes</div>
+      </div>
+    </div>
+    <div class="project-card reveal" style="transition-delay:0.3s">
+      <div class="project-icon">⚡</div>
+      <div class="project-card-inner">
+        <div class="project-tag">Edge Deployment</div>
+        <div class="project-title">Raspberry Pi 4</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- NEWS / TECH -->
+<section id="news">
+  <div class="section-label reveal">05 — Technology</div>
+  <div class="section-title reveal" style="color:var(--black)">BUILT ON<br>CUTTING<br>EDGE</div>
+
+  <div class="news-row">
+    <div class="news-item reveal">
+      <div class="news-category">Detection Model</div>
+      <div class="news-title">YOLOv11s</div>
+      <div class="news-body">The small variant of YOLOv11 — anchor-free, C3k2 blocks, decoupled head. ~9.4M parameters, 21.5 GFLOPs. Fine-tuned on our custom datasets via transfer learning from COCO weights.</div>
+    </div>
+    <div class="news-item reveal" style="transition-delay:0.1s">
+      <div class="news-category">Edge Hardware</div>
+      <div class="news-title">Raspberry Pi 4</div>
+      <div class="news-body">Full deployment on embedded hardware with INT8 quantization and resolution optimization. 10.4ms/frame inference. Zero dependency on network connectivity — safety never goes offline.</div>
+    </div>
+    <div class="news-item reveal" style="transition-delay:0.2s">
+      <div class="news-category">Safety Score</div>
+      <div class="news-title">Multi-Factor Risk</div>
+      <div class="news-body">Weighted PPE penalty (helmet=25, vest=15, gloves=15, mask=5) × contextual scaffold coefficient × soft saturation × crowd normalization → single 0–100 safety score.</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div>
+    <div class="footer-logo">SAFETY<br><span>MONITOR</span></div>
+  </div>
+  <div class="footer-meta">
+    Mohammed 5 University<br>
+    Faculty of Science — Rabat<br>
+    MSID — Computer Science<br>
+    2025 – 2026
+  </div>
+  <div class="footer-copy">
+    Edge AI Framework<br>
+    Construction Safety<br>
+    YOLOv11s · Raspberry Pi 4<br>
+    <br>
+    © 2026 SafetyMonitor
+  </div>
+</footer>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav" id="bottomNav">
+  <a href="#approach" data-section="approach"><span class="dot"></span>Approach</a>
+  <a href="#services" data-section="services"><span class="dot"></span>Modules</a>
+  <a href="#projects" data-section="projects"><span class="dot"></span>Results</a>
+  <a href="#news" data-section="news"><span class="dot"></span>Tech</a>
+</nav>
+
+<script>
+const cursor = document.getElementById('cursor');
+document.addEventListener('mousemove', e => {
+  cursor.style.left = e.clientX + 'px';
+  cursor.style.top = e.clientY + 'px';
+});
+document.querySelectorAll('a, button, .service-item').forEach(el => {
+  el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
+  el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
+});
+
+const menuBtn = document.getElementById('menuBtn');
+const closeBtn = document.getElementById('closeBtn');
+const overlay = document.getElementById('nav-overlay');
+menuBtn.addEventListener('click', () => overlay.classList.add('open'));
+closeBtn.addEventListener('click', () => overlay.classList.remove('open'));
+overlay.querySelectorAll('a').forEach(a => a.addEventListener('click', () => overlay.classList.remove('open')));
+
+window.addEventListener('scroll', () => {
+  const pct = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
+  document.getElementById('progress').style.width = pct + '%';
+});
+
+const reveals = document.querySelectorAll('.reveal');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+}, { threshold: 0.15 });
+reveals.forEach(r => observer.observe(r));
+
+const navLinks = document.querySelectorAll('#bottomNav a');
+const sectionIds = ['approach','services','projects','news'];
+window.addEventListener('scroll', () => {
+  const pos = window.scrollY + window.innerHeight / 2;
+  sectionIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const top = el.offsetTop, bot = top + el.offsetHeight;
+    const link = document.querySelector(`#bottomNav a[data-section="${id}"]`);
+    if (pos >= top && pos < bot) link.classList.add('active');
+    else link.classList.remove('active');
+  });
+});
+
+// Hero objects cycling
+const objects = [
+  {
+    title: 'SAFETY\nMONITOR',
+    svg: `<svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="200" cy="290" rx="160" ry="25" fill="rgba(0,0,0,0.08)"/>
+      <path d="M200 60 C270 60 330 120 340 200 L340 250 Q340 270 320 270 L80 270 Q60 270 60 250 L60 200 C70 120 130 60 200 60 Z" fill="#F5C518" stroke="#0A0A0A" stroke-width="6"/>
+      <rect x="60" y="255" width="280" height="22" rx="8" fill="#0A0A0A"/>
+      <path d="M200 90 C260 90 310 135 320 195 L80 195 C90 135 140 90 200 90 Z" fill="rgba(255,255,255,0.15)"/>
+    </svg>`
+  },
+  {
+    title: 'HAZARD\nDETECT',
+    svg: `<svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="200" cy="340" rx="120" ry="20" fill="rgba(0,0,0,0.08)"/>
+      <path d="M200 50 L370 330 L30 330 Z" fill="#E63946" stroke="#0A0A0A" stroke-width="8" stroke-linejoin="round"/>
+      <rect x="188" y="170" width="24" height="90" rx="6" fill="white"/>
+      <circle cx="200" cy="295" r="14" fill="white"/>
+    </svg>`
+  },
+  {
+    title: 'SCAFFOLD\nRISK AI',
+    svg: `<svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="60" y="80" width="280" height="240" rx="12" fill="#1A8C6E" stroke="#0A0A0A" stroke-width="6"/>
+      <rect x="85" y="105" width="230" height="180" rx="6" fill="rgba(0,0,0,0.3)"/>
+      <rect x="100" y="120" width="60" height="55" rx="4" fill="#F5C518" opacity="0.9"/>
+      <rect x="170" y="120" width="130" height="20" rx="3" fill="rgba(255,255,255,0.4)"/>
+      <rect x="170" y="150" width="90" height="12" rx="3" fill="rgba(255,255,255,0.2)"/>
+      <rect x="100" y="190" width="200" height="3" rx="2" fill="rgba(255,255,255,0.15)"/>
+      <rect x="100" y="210" width="200" height="14" rx="3" fill="rgba(255,255,255,0.15)"/>
+      <rect x="100" y="234" width="155" height="14" rx="3" fill="rgba(255,255,255,0.15)"/>
+      <circle cx="290" cy="330" r="28" fill="#F5C518" stroke="#0A0A0A" stroke-width="4"/>
+      <path d="M280 325 L290 335 L305 318" stroke="#0A0A0A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`
+  },
+  {
+    title: 'EDGE AI\nRASP PI',
+    svg: `<svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="90" y="100" width="220" height="190" rx="16" fill="#0A0A0A" stroke="#333" stroke-width="4"/>
+      <rect x="108" y="118" width="184" height="136" rx="8" fill="#1a1a2e"/>
+      <rect x="116" y="126" width="168" height="112" rx="4" fill="rgba(26,140,110,0.15)"/>
+      <text x="125" y="155" font-family="monospace" font-size="11" fill="#1A8C6E">▶ yolo_detect.py</text>
+      <text x="125" y="173" font-family="monospace" font-size="10" fill="#F5C518">mAP@50: 0.869</text>
+      <text x="125" y="191" font-family="monospace" font-size="10" fill="rgba(255,255,255,0.5)">fps: 40.2</text>
+      <text x="125" y="209" font-family="monospace" font-size="10" fill="#E63946">⚠ helmet missing</text>
+      <text x="125" y="227" font-family="monospace" font-size="10" fill="rgba(255,255,255,0.3)">workers: 13 ✓</text>
+      <rect x="160" y="296" width="80" height="10" rx="4" fill="#333"/>
+      <circle cx="116" cy="100" r="7" fill="#E63946"/>
+      <circle cx="140" cy="100" r="7" fill="#F5C518"/>
+      <circle cx="164" cy="100" r="7" fill="#1A8C6E"/>
+    </svg>`
+  }
+];
+
+let objIdx = 0;
+const heroObj = document.getElementById('heroObj');
+const objSvg = document.getElementById('objSvg');
+const heroTitle = document.getElementById('heroTitle');
+
+function cycleObject() {
+  heroObj.classList.remove('visible');
+  setTimeout(() => {
+    objIdx = (objIdx + 1) % objects.length;
+    objSvg.innerHTML = objects[objIdx].svg.match(/<svg[^>]*>([\s\S]*)<\/svg>/)[1];
+    heroTitle.innerHTML = objects[objIdx].title.replace('\n', '<br>');
+    heroObj.classList.add('visible');
+  }, 500);
+}
+setInterval(cycleObject, 3000);
+</script>
+</body>
+</html>
