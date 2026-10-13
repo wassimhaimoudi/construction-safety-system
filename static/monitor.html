@@ -461,8 +461,8 @@
 <header class="topbar">
   <a href="/" class="topbar-brand">SAFETY<span>MONITOR</span></a>
   <div class="topbar-right">
-    <div class="model-badge"><span class="dot orange"></span>vew.pt</div>
-    <div class="model-badge"><span class="dot"></span>scafandri.pt</div>
+    <div class="model-badge"><span class="dot orange"></span>ppe.pt</div>
+    <div class="model-badge"><span class="dot"></span>scaffold.pt</div>
     <a href="/" class="back-btn">← Accueil</a>
   </div>
 </header>
@@ -491,20 +491,11 @@
 
     <div>
       <div class="panel-label">02 — Paramètres</div>
-      <div class="slider-row">
-        <div class="slider-label">
-          vew.pt confidence
-          <span id="confVewVal">0.25</span>
-        </div>
-        <input type="range" id="confVew" min="0.10" max="0.90" step="0.05" value="0.25">
-      </div>
-      <br>
-      <div class="slider-row">
-        <div class="slider-label">
-          scafandri.pt confidence
-          <span id="confScafVal">0.25</span>
-        </div>
-        <input type="range" id="confScaf" min="0.10" max="0.90" step="0.05" value="0.25">
+      <div class="formula-box" style="font-size:10px">
+        La confiance des modèles est configurée côté serveur
+        (<strong>SAFETY_CONFIDENCE</strong>).<br><br>
+        <strong>ppe.pt</strong> → personne + EPI (casque, gilet, gants, masque)<br>
+        <strong>scaffold.pt</strong> → échafaudage + infrastructure
       </div>
     </div>
 
@@ -515,15 +506,17 @@
     </button>
 
     <div>
-      <div class="panel-label">Score Formula</div>
+      <div class="panel-label">Safety Formula</div>
       <div class="formula-box">
-        <strong>Score</strong> = min(100, PPE + Scaf + Crowd)<br>
+        <strong>Safety</strong> = 100 − Danger<br>
+        <strong>Danger</strong> = min(100, PPE + Scaf + Crowd)<br>
         <strong>PPE_risk</strong>    → max <strong>50</strong> pts<br>
         <strong>Scaffold_risk</strong> → max <strong>35</strong> pts<br>
         <strong>Crowd_risk</strong>  → max <strong>15</strong> pts<br>
         <br>
-        🟢 0-20 LOW · 🟡 21-50 MEDIUM<br>
-        🟠 51-80 HIGH · 🔴 81-100 CRITICAL
+        🟢 81-100 SAFE · 🟢 51-80 LOW<br>
+        🟡 21-50 MEDIUM · 🟠 1-20 HIGH<br>
+        🔴 0 CRITICAL
       </div>
     </div>
 
@@ -544,11 +537,11 @@
       <div class="section-heading">Image Annotée — PPE + Scaffold + Infrastructure</div>
       <img id="annotated-img" alt="Annotated">
       <div class="img-legend">
-        <span><span class="legend-dot" style="background:#00dc00"></span>PPE OK</span>
-        <span><span class="legend-dot" style="background:#ff3333"></span>VIOLATION</span>
-        <span><span class="legend-dot" style="background:#ffa040"></span>PARTIEL</span>
-        <span><span class="legend-dot" style="background:#00c8ff"></span>Scaffold</span>
-        <span><span class="legend-dot" style="background:#ffd000"></span>Infra</span>
+        <span><span class="legend-dot" style="background:#00c800"></span>EPI OK</span>
+        <span><span class="legend-dot" style="background:#ff0000"></span>VIOLATION / Scaffold</span>
+        <span><span class="legend-dot" style="background:#00a5ff"></span>PARTIEL</span>
+        <span><span class="legend-dot" style="background:#00c8ff"></span>Infra</span>
+        <span><span class="legend-dot" style="background:#00ffff"></span>EPI détecté</span>
       </div>
     </div>
 
@@ -573,7 +566,7 @@
 
     <!-- Infrastructure detections -->
     <div id="infra-section">
-      <div class="section-heading">Infrastructure Détectée — vew.pt</div>
+      <div class="section-heading">Infrastructure Détectée — scaffold.pt</div>
       <div class="infra-card" id="infraCard"></div>
     </div>
 
@@ -587,12 +580,6 @@
 </div>
 
 <script>
-// ── Slider live values ─────────────────────────────────────
-const confVew  = document.getElementById('confVew');
-const confScaf = document.getElementById('confScaf');
-confVew.addEventListener('input',  () => document.getElementById('confVewVal').textContent  = parseFloat(confVew.value).toFixed(2));
-confScaf.addEventListener('input', () => document.getElementById('confScafVal').textContent = parseFloat(confScaf.value).toFixed(2));
-
 // ── Image upload / drag ────────────────────────────────────
 const dropZone   = document.getElementById('dropZone');
 const imageInput = document.getElementById('imageInput');
@@ -635,20 +622,19 @@ analyzeBtn.addEventListener('click', async () => {
   hideStatus();
 
   const fd = new FormData();
-  fd.append('image', selectedFile);
-  fd.append('conf_vew',  confVew.value);
-  fd.append('conf_scaf', confScaf.value);
+  fd.append('file', selectedFile);
 
   try {
-    const res = await fetch('/api/analyze', { method: 'POST', body: fd });
+    const res = await fetch('/api/v1/analyze', { method: 'POST', body: fd });
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || `HTTP ${res.status}`);
+      let detail = `HTTP ${res.status}`;
+      try { detail = (await res.json()).detail || detail; } catch (_) {}
+      throw new Error(detail);
     }
     const data = await res.json();
     renderResults(data);
     hideStatus();
-  } catch(e) {
+  } catch (e) {
     showStatus('❌ ' + e.message, 'error');
   } finally {
     document.getElementById('loadingOverlay').classList.remove('active');
@@ -660,18 +646,14 @@ analyzeBtn.addEventListener('click', async () => {
 function renderResults(d) {
   document.getElementById('emptyState').style.display = 'none';
 
-  // Annotated image
   const wrap = document.getElementById('annotated-wrap');
   wrap.style.display = 'block';
-  document.getElementById('annotated-img').src = 'data:image/jpeg;base64,' + d.annotated_b64;
+  if (d.annotated_image) {
+    document.getElementById('annotated-img').src = d.annotated_image;
+  }
 
-  // Global score
   renderScoreCard(d);
-
-  // Infra
   renderInfra(d);
-
-  // Persons
   renderPersons(d);
 }
 
@@ -693,70 +675,84 @@ function renderScoreCard(d) {
   inner.style.borderColor = color;
   inner.style.background = bg;
 
-  document.getElementById('scoreBig').textContent  = d.score;
+  document.getElementById('scoreBig').textContent  = d.safety;
   document.getElementById('scoreBig').style.color  = color;
   document.getElementById('scoreLevel').textContent = label;
   document.getElementById('scoreLevel').style.color = color;
 
   const bar = document.getElementById('scoreBarFill');
-  bar.style.width = d.score + '%';
+  bar.style.width = d.safety + '%';
+  bar.style.background = color;
 
+  const c = d.counts || { persons: 0, violations: 0, detections: 0 };
   document.getElementById('scoreStats').innerHTML = `
-    <div class="stat-chip"><div class="val" style="color:#60a5fa">${d.n_persons}</div><div class="lbl">Personnes</div></div>
-    <div class="stat-chip"><div class="val" style="color:#ef4444">${d.n_violators}</div><div class="lbl">Violations</div></div>
+    <div class="stat-chip"><div class="val" style="color:#60a5fa">${c.persons}</div><div class="lbl">Personnes</div></div>
+    <div class="stat-chip"><div class="val" style="color:#ef4444">${c.violations}</div><div class="lbl">Violations</div></div>
     <div class="stat-chip"><div class="val" style="color:#f97316">${d.ppe_risk}</div><div class="lbl">+pts PPE</div></div>
-    <div class="stat-chip"><div class="val" style="color:#f97316">${d.scaf_score}</div><div class="lbl">+pts Scaffold</div></div>
-    <div class="stat-chip"><div class="val" style="color:#a855f7">${d.crowd_bonus}</div><div class="lbl">+pts Groupe</div></div>
+    <div class="stat-chip"><div class="val" style="color:#f97316">${d.scaffold_risk}</div><div class="lbl">+pts Scaffold</div></div>
+    <div class="stat-chip"><div class="val" style="color:#a855f7">${d.crowd_risk}</div><div class="lbl">+pts Groupe</div></div>
   `;
 
-  const scafRows = (d.scaf_reasons||[]).map(r => `<div>${r}</div>`).join('');
-  const crowdRow = d.crowd_reason ? `<div style="color:#a855f7">${d.crowd_reason}</div>` : '';
   document.getElementById('scoreDetails').innerHTML = `
-    <div>Conformité PPE: <span style="color:#22c55e;font-weight:700">${(d.score_ppe||0).toFixed(1)}%</span>
-     &nbsp;|&nbsp; Casques manquants: ${d.missing_helm}
-     &nbsp;|&nbsp; Gilets manquants: ${d.missing_vest}
+    <div>Niveau: <span style="color:${color};font-weight:700">${d.level}</span>
+     &nbsp;|&nbsp; Danger global: ${d.danger}/100
+     &nbsp;|&nbsp; Détections: ${c.detections}
     </div>
     <div style="margin-top:4px;color:#475569;font-size:9px">
-      Formule: Score = min(100, PPE_risk[max 50] + Scaffold_risk[max 35] + Crowd[max 15])
+      Formule: Safety = 100 − min(100, PPE[max 50] + Scaffold[max 35] + Crowd[max 15])
     </div>
-    ${scafRows}${crowdRow}
   `;
 }
 
+const INFRA_CATEGORY = {
+  Danger_Zone: '🔴 Zone de Danger / Panneau',
+  Work_Sign:   '🔴 Zone de Danger / Panneau',
+  Barrier:     '🟡 Barrière / Clôture',
+  Cone:        '🟠 Cône de Signalisation',
+};
+
 function renderInfra(d) {
   const sec = document.getElementById('infra-section');
-  if (!d.infra_dets || d.infra_dets.length === 0) {
+  const items = (d.detections || []).filter(x => INFRA_CATEGORY[x.class_name]);
+  if (items.length === 0) {
     sec.style.display = 'none';
     return;
   }
   sec.style.display = 'block';
+
   const groups = {};
-  const catLabel = {
-    danger:  '🔴 Zone de Danger / Panneau',
-    barrier: '🟡 Barrière / Clôture',
-    cone:    '🟠 Cône de Signalisation',
-  };
-  d.infra_dets.forEach(det => {
-    const cat = catLabel[det.category] || '⚪ Autre';
+  items.forEach(det => {
+    const cat = INFRA_CATEGORY[det.class_name];
     (groups[cat] = groups[cat] || []).push(det);
   });
 
-  let html = `<div class="infra-title">🚧 ${d.infra_dets.length} objet(s) infrastructure détecté(s) par vew.pt</div>`;
-  for (const [cat, items] of Object.entries(groups)) {
-    html += `<div style="margin-bottom:10px"><div class="infra-group-label">${cat} × ${items.length}</div>`;
-    items.forEach(item => {
+  let html = `<div class="infra-title">🚧 ${items.length} objet(s) infrastructure détecté(s) par scaffold.pt</div>`;
+  for (const [cat, list] of Object.entries(groups)) {
+    html += `<div style="margin-bottom:10px"><div class="infra-group-label">${cat} × ${list.length}</div>`;
+    list.forEach(item => {
       const pct = Math.round(item.confidence * 100);
       html += `
         <div class="infra-item">
-          <span class="cls-name">${item.class}</span>
+          <span class="cls-name">${item.class_name}</span>
           <div class="conf-bar-wrap"><div class="conf-bar-fill" style="width:${pct}%"></div></div>
           <span>${pct}%</span>
         </div>`;
     });
     html += `</div>`;
   }
-  html += `<div class="infra-note">Ces objets sont affichés sur l'image annotée mais n'affectent pas directement le score de risque.</div>`;
+  html += `<div class="infra-note">Ces objets sont affichés sur l'image annotée mais n'affectent pas directement le score.</div>`;
   document.getElementById('infraCard').innerHTML = html;
+}
+
+const PPE_META = {
+  present: { cls: 'ppe-ok',   icon: '✅' },
+  missing: { cls: 'ppe-miss', icon: '❌' },
+  unknown: { cls: 'ppe-unk',  icon: '❓' },
+};
+
+function ppeBadge(label, state) {
+  const m = PPE_META[state] || PPE_META.unknown;
+  return `<span class="ppe-badge ${m.cls}">${m.icon} ${label}</span>`;
 }
 
 function renderPersons(d) {
@@ -774,52 +770,47 @@ function renderPersons(d) {
     UNKNOWN:   { color: '#a855f7', bg: '#1a0a2e', icon: '❓', lbl: 'INCONNU' },
   };
 
+  const cropByIndex = {};
+  (d.crops || []).forEach(c => { cropByIndex[c.index] = c.image; });
+
   const grid = document.getElementById('personsGrid');
   grid.innerHTML = '';
 
   d.persons.forEach(pr => {
     const { color, bg, icon, lbl } = statusMeta[pr.status] || statusMeta.UNKNOWN;
-    const pct = pr.score_pct || 0;
+    const pct = Math.round((pr.score / 45) * 100);
     const emoji = pct > 50 ? '🔴' : pct > 20 ? '🟡' : '🟢';
     const barColor = pct > 50 ? '#ef4444' : pct > 20 ? '#f97316' : pct > 0 ? '#eab308' : '#22c55e';
 
-    const hBadge = pr.helmet_status
-      ? `<span class="ppe-badge ppe-ok">✅ Casque</span>`
-      : pr.helmet_missing
-        ? `<span class="ppe-badge ppe-miss">❌ Casque</span>`
-        : `<span class="ppe-badge ppe-unk">❓ Casque</span>`;
-    const vBadge = pr.vest_status
-      ? `<span class="ppe-badge ppe-ok">✅ Gilet</span>`
-      : pr.vest_missing
-        ? `<span class="ppe-badge ppe-miss">❌ Gilet</span>`
-        : `<span class="ppe-badge ppe-unk">❓ Gilet</span>`;
+    const badges =
+      ppeBadge('Casque', pr.helmet) +
+      ppeBadge('Gilet', pr.vest) +
+      ppeBadge('Gants', pr.glove) +
+      ppeBadge('Masque', pr.mask);
 
     const scafTag = pr.on_scaffold
-      ? `<div class="scaffold-tag">🏗 Sur échafaud (PPE aggravé)</div>` : '';
-    const crowdTag = pr.crowd_share > 0 && pr.status === 'VIOLATION'
-      ? `<div class="crowd-tag">👥 Bonus groupe +${pr.crowd_share}pts</div>` : '';
+      ? `<div class="scaffold-tag">🏗 Sur échafaud (EPI aggravé)</div>` : '';
 
     const reasons = (pr.reasons || [])
-      .filter(r => !r.startsWith('  →'))
       .map(r => `<div class="person-reason">${r}</div>`)
       .join('');
 
+    const crop = cropByIndex[pr.index];
     let photoHtml;
-    if (pr.crop_b64) {
+    if (crop) {
       photoHtml = `
         <div class="person-photo-wrap">
-          <img src="data:image/png;base64,${pr.crop_b64}"
-               class="person-photo" style="border-color:${color}" alt="P${pr.index}">
+          <img src="${crop}" class="person-photo" style="border-color:${color}" alt="P${pr.index}">
           <div class="person-emoji">${emoji}</div>
         </div>`;
     } else {
-      const sc = color;
+      const headColor = pr.helmet === 'present' ? '#22c55e' : '#ef4444';
       photoHtml = `
         <div class="person-silhouette" style="border-color:${color};background:#111827">
           <svg width="42" height="80" viewBox="0 0 52 90" xmlns="http://www.w3.org/2000/svg">
-            <ellipse cx="26" cy="16" rx="14" ry="10" fill="${pr.helmet_status ? '#22c55e' : '#ef4444'}" opacity="0.9"/>
+            <ellipse cx="26" cy="16" rx="14" ry="10" fill="${headColor}" opacity="0.9"/>
             <ellipse cx="26" cy="30" rx="9" ry="10" fill="#c9a87c"/>
-            <rect x="15" y="40" width="22" height="26" rx="4" fill="${sc}" opacity="0.8"/>
+            <rect x="15" y="40" width="22" height="26" rx="4" fill="${color}" opacity="0.8"/>
             <rect x="6" y="40" width="9" height="18" rx="3" fill="#475569"/>
             <rect x="37" y="40" width="9" height="18" rx="3" fill="#475569"/>
             <rect x="16" y="66" width="9" height="18" rx="3" fill="#334155"/>
@@ -843,14 +834,14 @@ function renderPersons(d) {
       <div class="person-body">
         ${photoHtml}
         <div class="person-info">
-          <div class="ppe-badges">${hBadge}${vBadge}</div>
-          ${scafTag}${crowdTag}${reasons}
+          <div class="ppe-badges">${badges}</div>
+          ${scafTag}${reasons}
         </div>
       </div>
       <div class="risk-bar-wrap">
         <div class="risk-bar-fill" style="width:${pct}%;background:${barColor}"></div>
       </div>
-      <div class="risk-pct-label">${pct}% risque individuel</div>
+      <div class="risk-pct-label">${pct}% risque individuel (${pr.score}/45 pts)</div>
     `;
     grid.appendChild(card);
   });
@@ -859,19 +850,16 @@ function renderPersons(d) {
 // ── Check server model status on load ─────────────────────
 (async () => {
   try {
-    const res  = await fetch('/api/status');
+    const res  = await fetch('/health');
     const data = await res.json();
-    if (!data.ready) {
-      const missing = Object.entries(data.models)
-        .filter(([,ok]) => !ok)
-        .map(([k]) => k + '.pt')
-        .join(', ');
-      showStatus(`⚠️ Modèle(s) manquant(s): ${missing} — placez-les dans le dossier de app.py`, 'warn');
+    if (!data.models_loaded) {
+      showStatus(`⚠️ Modèle(s) non chargé(s): ${(data.models || []).join(', ')}`, 'warn');
     }
-  } catch(e) {
-    showStatus('⚠️ Impossible de contacter le serveur Flask. Vérifiez que app.py tourne.', 'error');
+  } catch (e) {
+    showStatus('⚠️ Impossible de contacter le serveur. Vérifiez que le service tourne.', 'error');
   }
 })();
 </script>
+
 </body>
 </html>

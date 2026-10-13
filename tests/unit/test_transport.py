@@ -122,3 +122,34 @@ def test_no_wildcard_cors_by_default():
     assert "access-control-allow-origin" not in {
         k.lower() for k in response.headers
     }
+
+
+def test_serves_landing_page():
+    with _client() as client:
+        response = client.get("/")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+
+
+def test_serves_monitor_page():
+    with _client() as client:
+        response = client.get("/monitor")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+
+
+def test_monitor_page_targets_new_api():
+    with _client() as client:
+        body = client.get("/monitor").text
+
+    assert "/api/v1/analyze" in body
+    assert "/api/analyze" not in body  # legacy endpoint must be gone
+    assert "/health" in body
+
+
+def test_api_routes_take_precedence_over_static():
+    with _client() as client:
+        assert client.get("/health").status_code == 200
+        assert client.get("/api/v1/info").status_code == 200

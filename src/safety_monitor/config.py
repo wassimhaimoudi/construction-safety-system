@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     # Rendering.
     annotate: bool = True
 
+    # Bundled UI (served at / and /monitor when the directory exists).
+    static_dir: Path | None = Path("static")
+
 
 def get_settings() -> Settings:
     return Settings()

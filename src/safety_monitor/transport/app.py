@@ -60,4 +60,12 @@ def create_app(
         )
 
     app.include_router(router)
+
+    if settings.static_dir is not None:
+        from pathlib import Path
+
+        from .static import mount_static
+
+        mount_static(app, Path(settings.static_dir))
+
     return app

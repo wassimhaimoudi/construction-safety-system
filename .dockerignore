@@ -28,5 +28,4 @@ requirements.txt
 
 # Docs and sample assets
 *.md
-static/
 pipeline_outputs/

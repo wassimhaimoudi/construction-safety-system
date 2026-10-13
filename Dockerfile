@@ -41,6 +41,9 @@ WORKDIR /app
 # Model weights (override by mounting a volume at /models).
 COPY ppe.pt scaffold.pt /models/
 
+# Bundled UI (served at / and /monitor).
+COPY static ./static
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
