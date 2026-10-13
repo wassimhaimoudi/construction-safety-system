@@ -20,7 +20,7 @@ Runtime: Python, Flask (current) → FastAPI, Ultralytics YOLO, Docker
 ### Discovered facts that forced these choices
 - The two model files are **swapped** vs their names:
   - `vew.pt` → training run `scaffold_risk_v3`, 7 classes (scaffold + environment).
-  - `scafandri.pt` → training run `ppe_yolov11`, 13 classes (person + PPE).
+  - `scafandri.pt` → training run `ppe_yolov11`, 14 classes (person + PPE, incl. anatomy `head`).
 - `app.py`'s taxonomy constants (`app.py:38-76`) reference **invented class names**, so:
   - missing-helmet never fires (real class is `head_nohelmet`),
   - missing-vest can never fire (no negative class exists),

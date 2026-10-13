@@ -21,11 +21,6 @@ dist/
 tests/
 pyproject.toml.bak
 
-# Legacy Flask app + launcher + stale requirements (replaced by the service)
-app.py
-run.sh
-requirements.txt
-
 # Docs and sample assets
 *.md
 pipeline_outputs/
