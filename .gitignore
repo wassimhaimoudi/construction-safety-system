@@ -1,24 +1,58 @@
-# Python
+# ── Python ────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
+*$py.class
 *.egg-info/
 .eggs/
+*.egg
+.installed.cfg
 
-# Virtual environments
+# ── Virtual environments ──────────────────────────────────
 .venv/
 venv/
 env/
+ENV/
 
-# Test / tooling caches
+# ── Test / coverage / tooling caches ──────────────────────
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.hypothesis/
+.tox/
+.nox/
 .coverage
+.coverage.*
 htmlcov/
+coverage.xml
 
-# Build artifacts
+# ── Build artifacts ───────────────────────────────────────
 build/
 dist/
+site/
+wheels/
 
-# Runtime artifacts
+# ── Secrets / local config ────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ── Runtime artifacts ─────────────────────────────────────
 pipeline_outputs/
+*.log
+*.pid
+*.sqlite3
+
+# ── OS / editor ───────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# ── NOTE on model weights ─────────────────────────────────
+# ppe.pt and scaffold.pt are intentionally tracked so the image/clone is
+# self-contained. If you'd rather keep them out of git, use Git LFS:
+#     git lfs track "*.pt"
+#     git rm --cached ppe.pt scaffold.pt
