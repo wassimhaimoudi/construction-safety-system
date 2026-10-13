@@ -31,7 +31,7 @@ MASK_PRESENT_CLASSES = frozenset({"mask", "face_mask"})
 MASK_MISSING_CLASSES = frozenset({"face_nomask"})
 
 # Anatomy-only detections (never scored)
-ANATOMY_CLASSES = frozenset({"face", "hand"})
+ANATOMY_CLASSES = frozenset({"face", "hand", "head"})
 
 # Scaffold risk
 SCAFFOLD_SUSPENDED_CLASSES = frozenset({"High_Risk_Suspended_Scaffolding"})
