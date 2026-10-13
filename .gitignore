@@ -56,3 +56,4 @@ Thumbs.db
 # self-contained. If you'd rather keep them out of git, use Git LFS:
 #     git lfs track "*.pt"
 #     git rm --cached ppe.pt scaffold.pt
+PLAN.md
