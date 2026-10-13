@@ -11,16 +11,16 @@ echo "🏗️  Safety Monitor — Web Server Setup"
 echo "──────────────────────────────────────"
 
 # Check model files
-if [ ! -f "vew.pt" ]; then
-  echo "❌  vew.pt not found — place it in this folder"
+if [ ! -f "scaffold.pt" ]; then
+  echo "❌  scaffold.pt not found — place it in this folder"
   exit 1
 fi
-if [ ! -f "scafandri.pt" ]; then
-  echo "❌  scafandri.pt not found — place it in this folder"
+if [ ! -f "ppe.pt" ]; then
+  echo "❌  ppe.pt not found — place it in this folder"
   exit 1
 fi
-echo "✅  vew.pt found"
-echo "✅  scafandri.pt found"
+echo "✅  scaffold.pt found"
+echo "✅  ppe.pt found"
 
 # Install dependencies if needed
 echo ""

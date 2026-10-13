@@ -1,7 +1,7 @@
 """
 AI Construction Site Safety Monitor — v10
 Flask backend server
-Dual-model pipeline: vew.pt (PPE/workers/infra) + scafandri.pt (scaffold risk)
+Dual-model pipeline: scaffold.pt (PPE/workers/infra) + ppe.pt (scaffold risk)
 """
 
 import os, base64, io, json, tempfile
@@ -22,8 +22,8 @@ from ultralytics import YOLO
 app = Flask(__name__, static_folder="static")
 CORS(app)
 
-MODEL_VEW_PATH       = "vew.pt"
-MODEL_SCAFANDRI_PATH = "scafandri.pt"
+MODEL_VEW_PATH       = "scaffold.pt"
+MODEL_SCAFANDRI_PATH = "ppe.pt"
 
 OUTPUT_DIR = Path("pipeline_outputs")
 OUTPUT_DIR.mkdir(exist_ok=True)
@@ -112,8 +112,8 @@ def load_models():
         _model_scaf = YOLO(MODEL_SCAFANDRI_PATH)
         VEW_NAMES   = _model_vew.names
         SCAF_NAMES  = _model_scaf.names
-        print(f"✅ vew.pt — {_model_vew.model.nc} classes")
-        print(f"✅ scafandri.pt — {_model_scaf.model.nc} classes")
+        print(f"✅ scaffold.pt — {_model_vew.model.nc} classes")
+        print(f"✅ ppe.pt — {_model_scaf.model.nc} classes")
     return _model_vew, _model_scaf
 
 # ─────────────────────────────────────────────────────────────
@@ -492,7 +492,7 @@ def analyze():
     try:
         model_vew, model_scaf = load_models()
     except Exception as e:
-        return jsonify({"error": f"Model loading failed: {e}. Make sure vew.pt and scafandri.pt are in the same folder as app.py"}), 500
+        return jsonify({"error": f"Model loading failed: {e}. Make sure scaffold.pt and ppe.pt are in the same folder as app.py"}), 500
 
     image_bgr = pil_to_cv2(pil_img)
 
@@ -566,7 +566,7 @@ def status():
 
 if __name__ == "__main__":
     print("🏗️  AI Safety Monitor — Web Server")
-    print(f"   vew.pt      : {'✅' if os.path.exists(MODEL_VEW_PATH) else '❌ MISSING'}")
-    print(f"   scafandri.pt: {'✅' if os.path.exists(MODEL_SCAFANDRI_PATH) else '❌ MISSING'}")
+    print(f"   scaffold.pt      : {'✅' if os.path.exists(MODEL_VEW_PATH) else '❌ MISSING'}")
+    print(f"   ppe.pt: {'✅' if os.path.exists(MODEL_SCAFANDRI_PATH) else '❌ MISSING'}")
     print("   → http://localhost:5000")
     app.run(host="0.0.0.0", port=5000, debug=False)

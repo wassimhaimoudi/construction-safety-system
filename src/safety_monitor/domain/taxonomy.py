@@ -1,8 +1,8 @@
 """Detection class taxonomy, corrected to the real model outputs.
 
 The two model files are swapped relative to their names (see PLAN.md):
-  - ``vew.pt``       -> ``scaffold_risk_v3``  (scaffold + environment classes)
-  - ``scafandri.pt`` -> ``ppe_yolov11``       (person + PPE classes)
+  - ``scaffold.pt``       -> ``scaffold_risk_v3``  (scaffold + environment classes)
+  - ``ppe.pt`` -> ``ppe_yolov11``       (person + PPE classes)
 
 This module defines the canonical class sets the scorer understands. Class
 names are matched exactly (case-sensitive) against

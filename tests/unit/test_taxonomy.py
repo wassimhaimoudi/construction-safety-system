@@ -4,8 +4,8 @@ The class lists below were read directly from the shipped checkpoints via
 ``ultralytics.YOLO(...).names``. If a model is swapped or retrained, these
 tests fail loudly instead of silently under-scoring.
 
-  - ``vew.pt``       -> scaffold/environment model (7 classes)
-  - ``scafandri.pt`` -> PPE model (14 classes)
+  - ``scaffold.pt``       -> scaffold/environment model (7 classes)
+  - ``ppe.pt`` -> PPE model (14 classes)
 """
 
 from __future__ import annotations
