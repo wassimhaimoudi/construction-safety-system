@@ -1,11 +1,11 @@
 """Guard tests: every class emitted by the real models must be categorized.
 
-The class lists below were read directly from the shipped checkpoints via
-``ultralytics.YOLO(...).names``. If a model is swapped or retrained, these
-tests fail loudly instead of silently under-scoring.
+The class lists live in ``tests.support.model_classes`` and were read directly
+from the shipped checkpoints via ``ultralytics.YOLO(...).names``. If a model is
+swapped or retrained, these tests fail loudly instead of silently under-scoring.
 
-  - ``scaffold.pt``       -> scaffold/environment model (7 classes)
-  - ``ppe.pt`` -> PPE model (14 classes)
+  - ``scaffold.pt`` -> scaffold/environment model (7 classes)
+  - ``ppe.pt``      -> PPE model (14 classes)
 """
 
 from __future__ import annotations
@@ -13,37 +13,9 @@ from __future__ import annotations
 import pytest
 
 from safety_monitor.domain import taxonomy as tax
+from tests.support.model_classes import PPE_MODEL_CLASSES, SCAFFOLD_MODEL_CLASSES
 
-SCAFFOLD_MODEL_CLASSES = {
-    "High_Risk_Scaffolding",
-    "High_Risk_Suspended_Scaffolding",
-    "Low_Risk_Scaffolding",
-    "Barrier",
-    "Cone",
-    "Danger_Zone",
-    "Work_Sign",
-}
-
-PPE_MODEL_CLASSES = {
-    "face",
-    "face_mask",
-    "face_nomask",
-    "glove",
-    "hand",
-    "hand_glove",
-    "hand_noglove",
-    "head",
-    "head_helmet",
-    "head_nohelmet",
-    "helmet",
-    "mask",
-    "person",
-    "vest",
-}
-
-SCAFFOLD_MODEL_COVERAGE = (
-    tax.SCAFFOLD_CLASSES | tax.INFRA_CLASSES
-)
+SCAFFOLD_MODEL_COVERAGE = tax.SCAFFOLD_CLASSES | tax.INFRA_CLASSES
 
 PPE_MODEL_COVERAGE = (
     tax.PERSON_CLASSES
