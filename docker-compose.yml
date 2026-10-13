@@ -1,0 +1,18 @@
+services:
+  safety-monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: safety-monitor:latest
+    ports:
+      - "8000:8000"
+    environment:
+      SAFETY_CONFIDENCE: "0.35"
+      SAFETY_DEVICE: "cpu"
+      # Comma-free JSON list; opt in only for known browser origins:
+      # SAFETY_CORS_ORIGINS: '["http://localhost:5173"]'
+    # Mount weights instead of baking them into the image:
+    # volumes:
+    #   - ./ppe.pt:/models/ppe.pt:ro
+    #   - ./scaffold.pt:/models/scaffold.pt:ro
+    restart: unless-stopped

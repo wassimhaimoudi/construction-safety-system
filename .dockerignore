@@ -1,0 +1,32 @@
+# Virtualenvs / caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# VCS / CI
+.git/
+.gitignore
+.github/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Tests and tooling config not needed at runtime
+tests/
+pyproject.toml.bak
+
+# Legacy Flask app + launcher + stale requirements (replaced by the service)
+app.py
+run.sh
+requirements.txt
+
+# Docs and sample assets
+*.md
+static/
+pipeline_outputs/
