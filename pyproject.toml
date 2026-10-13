@@ -1,0 +1,30 @@
+[project]
+name = "safety-monitor"
+version = "0.1.0"
+description = "AI construction site safety monitor service"
+requires-python = ">=3.12"
+
+# Runtime dependencies are intentionally empty for the pure domain phase.
+# Service (FastAPI) and inference (Ultralytics/torch) dependency groups are
+# introduced in later phases.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+service = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "python-multipart>=0.0.9",
+    "pydantic-settings>=2.2",
+]
+inference = [
+    "ultralytics>=8.2",
+    "opencv-python-headless>=4.9",
+    "Pillow>=10.0",
+    "numpy>=1.26",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
